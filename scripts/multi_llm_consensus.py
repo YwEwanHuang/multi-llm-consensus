@@ -15,8 +15,6 @@ import hashlib
 import json
 import os
 import sys
-import re
-import sqlite3
 import time
 import urllib.error
 import urllib.parse
@@ -32,8 +30,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "max_output_tokens": 1400,
         "temperature": 0.2,
         "concurrency": 6,
-        "cc_switch_enabled": True,
-        "cc_switch_current_only": False,
     },
     "providers": {
         "openai": {
@@ -167,35 +163,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "discover_models": False,
         },
     },
-    "cc_switch": {
-        "enabled": True,
-        "current_only": False,
-        "include_provider_names": [],
-        "exclude_provider_names": [],
-        "provider_model_priority": {
-            "DeepSeek": [
-                "deepseek-v4-pro[1m]",
-                "deepseek-v3.2",
-                "deepseek-v3.1",
-                "deepseek-reasoner",
-                "deepseek-chat",
-            ],
-            "MiniMax": [
-                "MiniMax-M2.7",
-                "minimax-m2.7",
-                "MiniMax-M2.7-highspeed",
-                "minimax-m2.7-highspeed",
-                "minimax-m2.5",
-                "minimax-m2.1",
-                "minimax-m2",
-            ],
-            "Xiaomi MiMo": [
-                "mimo-v2.5-pro",
-                "mimo-v2-pro",
-                "mimo-v2-flash",
-            ],
-        },
-    },
 }
 
 
@@ -270,40 +237,9 @@ def parse_args() -> argparse.Namespace:
         help="Show discovered providers/models without sending prompts.",
     )
     parser.add_argument(
-        "--list-models",
-        action="store_true",
-        help="List provider model priorities and CC-SWITCH model catalog without API calls.",
-    )
-    parser.add_argument(
         "--mock",
         action="store_true",
         help="Return deterministic mock provider results without API keys.",
-    )
-    parser.add_argument(
-        "--cc-switch",
-        choices=["auto", "on", "off"],
-        default=None,
-        help="Discover Anthropic-compatible providers from CC-SWITCH config. Default: auto.",
-    )
-    parser.add_argument(
-        "--cc-switch-db",
-        help="Path to CC-SWITCH SQLite database. Defaults to ~/.cc-switch/cc-switch.db.",
-    )
-    parser.add_argument(
-        "--cc-switch-current-only",
-        action="store_true",
-        help="Only include the current CC-SWITCH provider.",
-    )
-    parser.add_argument(
-        "--cc-switch-provider",
-        action="append",
-        help="Only include this CC-SWITCH provider name. Repeat to include several.",
-    )
-    parser.add_argument(
-        "--exclude-cc-switch-provider",
-        action="append",
-        default=[],
-        help="Exclude this CC-SWITCH provider name. Repeat to exclude several.",
     )
     return parser.parse_args()
 
@@ -423,224 +359,6 @@ def resolve_api_key(provider_config: Mapping[str, Any], env: Mapping[str, str]) 
         if env.get(name):
             return env[name], name
     return None, names[0] if names else ""
-
-
-def should_use_cc_switch(config: Mapping[str, Any], args: argparse.Namespace) -> bool:
-    if args.cc_switch == "on":
-        return True
-    if args.cc_switch == "off":
-        return False
-    cc_switch = config.get("cc_switch", {})
-    if isinstance(cc_switch, Mapping) and "enabled" in cc_switch:
-        return bool(cc_switch.get("enabled"))
-    defaults = config.get("defaults", {})
-    return bool(defaults.get("cc_switch_enabled", True))
-
-
-def cc_switch_options(config: Mapping[str, Any]) -> Mapping[str, Any]:
-    options = config.get("cc_switch", {})
-    return options if isinstance(options, Mapping) else {}
-
-
-def string_set(values: Any) -> set:
-    if values is None:
-        return set()
-    if isinstance(values, str):
-        return {values.lower()}
-    if isinstance(values, list):
-        return {str(value).lower() for value in values}
-    return set()
-
-
-def cc_switch_db_path(config: Mapping[str, Any], env: Mapping[str, str], args: argparse.Namespace) -> Path:
-    if args.cc_switch_db:
-        return Path(args.cc_switch_db).expanduser()
-    if env.get("CC_SWITCH_DB"):
-        return Path(env["CC_SWITCH_DB"]).expanduser()
-    cc_switch = cc_switch_options(config)
-    if cc_switch.get("db_path"):
-        return Path(str(cc_switch["db_path"])).expanduser()
-    defaults = config.get("defaults", {})
-    if defaults.get("cc_switch_db"):
-        return Path(str(defaults["cc_switch_db"])).expanduser()
-    return Path.home() / ".cc-switch" / "cc-switch.db"
-
-
-def cc_switch_current_only(config: Mapping[str, Any], args: argparse.Namespace) -> bool:
-    if args.cc_switch_current_only:
-        return True
-    cc_switch = cc_switch_options(config)
-    if "current_only" in cc_switch:
-        return bool(cc_switch.get("current_only"))
-    defaults = config.get("defaults", {})
-    return bool(defaults.get("cc_switch_current_only", False))
-
-
-def cc_switch_name_filters(
-    config: Mapping[str, Any],
-    args: argparse.Namespace,
-) -> Tuple[set, set]:
-    cc_switch = cc_switch_options(config)
-    include = string_set(cc_switch.get("include_provider_names"))
-    exclude = string_set(cc_switch.get("exclude_provider_names"))
-    include.update(string_set(args.cc_switch_provider))
-    exclude.update(string_set(args.exclude_cc_switch_provider))
-    return include, exclude
-
-
-def cc_switch_provider_model_priority(
-    config: Mapping[str, Any],
-    provider_name: str,
-    configured_model: str,
-) -> List[str]:
-    cc_switch = cc_switch_options(config)
-    priorities = cc_switch.get("provider_model_priority", {})
-    candidates: List[str] = []
-    if isinstance(priorities, Mapping):
-        raw = priorities.get(provider_name) or priorities.get(provider_name.lower())
-        if isinstance(raw, list):
-            candidates.extend(str(item) for item in raw)
-    if configured_model and configured_model not in candidates:
-        candidates.insert(0, configured_model)
-    return candidates or ([configured_model] if configured_model else [])
-
-
-def slugify_provider_name(name: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    return slug or "provider"
-
-
-def normalize_anthropic_base_url(base_url: str) -> str:
-    base = base_url.rstrip("/")
-    if base.endswith("/v1"):
-        return base
-    return f"{base}/v1"
-
-
-def discover_cc_switch_providers(
-    config: Mapping[str, Any],
-    env: Mapping[str, str],
-    args: argparse.Namespace,
-) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
-    if not should_use_cc_switch(config, args):
-        return {}, []
-
-    db_path = cc_switch_db_path(config, env, args)
-    if not db_path.exists():
-        if args.cc_switch == "on":
-            return {}, [{"source": "cc-switch", "warning": f"database not found: {db_path}"}]
-        return {}, []
-
-    discovered: Dict[str, Dict[str, Any]] = {}
-    warnings: List[Dict[str, Any]] = []
-    connection: Optional[sqlite3.Connection] = None
-    try:
-        connection = sqlite3.connect(str(db_path))
-        connection.row_factory = sqlite3.Row
-        rows = connection.execute(
-            """
-            SELECT p.id, p.app_type, p.name, p.settings_config, p.is_current,
-                   p.in_failover_queue,
-                   GROUP_CONCAT(e.url, ' | ') AS endpoints
-            FROM providers p
-            LEFT JOIN provider_endpoints e
-              ON e.provider_id=p.id AND e.app_type=p.app_type
-            WHERE p.app_type='claude'
-            GROUP BY p.id, p.app_type
-            ORDER BY p.is_current DESC, p.in_failover_queue DESC, p.sort_index, p.name
-            """
-        ).fetchall()
-    except Exception as exc:
-        return {}, [{"source": "cc-switch", "warning": safe_error(exc)}]
-    finally:
-        if connection is not None:
-            try:
-                connection.close()
-            except Exception:
-                pass
-
-    for row in rows:
-        provider_display_name = str(row["name"])
-        provider_name_keys = {
-            provider_display_name.lower(),
-            slugify_provider_name(provider_display_name).lower(),
-        }
-        include_names, exclude_names = cc_switch_name_filters(config, args)
-        if include_names and provider_name_keys.isdisjoint(include_names):
-            continue
-        if not provider_name_keys.isdisjoint(exclude_names):
-            continue
-        if cc_switch_current_only(config, args) and not bool(row["is_current"]):
-            continue
-
-        try:
-            settings = json.loads(row["settings_config"] or "{}")
-        except Exception as exc:
-            warnings.append(
-                {
-                    "source": "cc-switch",
-                    "provider": provider_display_name,
-                    "warning": f"settings_config parse failed: {safe_error(exc)}",
-                }
-            )
-            continue
-        provider_env = settings.get("env")
-        if not isinstance(provider_env, dict):
-            continue
-
-        token = (
-            provider_env.get("ANTHROPIC_AUTH_TOKEN")
-            or provider_env.get("ANTHROPIC_API_KEY")
-            or provider_env.get("CLAUDE_CODE_OAUTH_TOKEN")
-        )
-        model = (
-            provider_env.get("ANTHROPIC_MODEL")
-            or provider_env.get("ANTHROPIC_DEFAULT_SONNET_MODEL")
-            or provider_env.get("ANTHROPIC_DEFAULT_OPUS_MODEL")
-            or provider_env.get("ANTHROPIC_DEFAULT_HAIKU_MODEL")
-        )
-        base_url = provider_env.get("ANTHROPIC_BASE_URL")
-        if not base_url and row["endpoints"]:
-            base_url = str(row["endpoints"]).split(" | ")[0].strip()
-
-        if not token or not model or not base_url:
-            missing = [
-                name
-                for name, value in {
-                    "ANTHROPIC_AUTH_TOKEN": token,
-                    "ANTHROPIC_MODEL": model,
-                    "ANTHROPIC_BASE_URL": base_url,
-                }.items()
-                if not value
-            ]
-            warnings.append(
-                {
-                    "source": "cc-switch",
-                    "provider": provider_display_name,
-                    "warning": f"missing {', '.join(missing)}",
-                }
-            )
-            continue
-
-        priority = cc_switch_provider_model_priority(config, provider_display_name, str(model))
-        name = f"cc-switch-{slugify_provider_name(provider_display_name)}"
-        discovered[name] = {
-            "enabled": True,
-            "client": "anthropic_messages",
-            "base_url": normalize_anthropic_base_url(str(base_url)),
-            "model": str(model),
-            "model_env": f"CC_SWITCH_{slugify_provider_name(provider_display_name).replace('-', '_').upper()}_MODEL",
-            "model_priority": priority,
-            "discover_models": False,
-            "_api_key_value": str(token),
-            "_api_key_source": f"cc-switch:{provider_display_name}",
-            "_config_source": "cc-switch",
-            "_cc_switch_provider_id": row["id"],
-            "_cc_switch_current": bool(row["is_current"]),
-            "_cc_switch_failover": bool(row["in_failover_queue"]),
-        }
-
-    return discovered, warnings
 
 
 def normalize_model_id(model_id: str) -> str:
@@ -793,12 +511,6 @@ def build_provider_runtimes(
     args: argparse.Namespace,
 ) -> Tuple[List[ProviderRuntime], List[Dict[str, Any]]]:
     providers = dict(config.get("providers", {}))
-    cc_switch_providers, cc_switch_warnings = discover_cc_switch_providers(
-        config, env, args
-    )
-    for name, provider_config in cc_switch_providers.items():
-        if name not in providers:
-            providers[name] = provider_config
     defaults = config.get("defaults", {})
     timeout = float(defaults.get("timeout_seconds", 60))
     include = set(args.provider or [])
@@ -857,15 +569,6 @@ def build_provider_runtimes(
                 available_models=available,
                 model_list_error=list_error,
             )
-        )
-
-    for warning in cc_switch_warnings:
-        skipped.append(
-            {
-                "provider": warning.get("provider", "cc-switch"),
-                "reason": warning.get("warning", "cc-switch discovery warning"),
-                "source": warning.get("source", "cc-switch"),
-            }
         )
 
     return runtimes, skipped
@@ -1210,152 +913,6 @@ def summarize_discovery(
     }
 
 
-def load_cc_switch_model_catalog(
-    config: Mapping[str, Any],
-    env: Mapping[str, str],
-    args: argparse.Namespace,
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    if not should_use_cc_switch(config, args):
-        return [], []
-    db_path = cc_switch_db_path(config, env, args)
-    if not db_path.exists():
-        return [], [{"source": "cc-switch", "warning": f"database not found: {db_path}"}]
-
-    connection: Optional[sqlite3.Connection] = None
-    try:
-        connection = sqlite3.connect(str(db_path))
-        connection.row_factory = sqlite3.Row
-        rows = connection.execute(
-            """
-            SELECT model_id, display_name, input_cost_per_million,
-                   output_cost_per_million, cache_read_cost_per_million,
-                   cache_creation_cost_per_million
-            FROM model_pricing
-            ORDER BY model_id
-            """
-        ).fetchall()
-        return [
-            {
-                "model_id": row["model_id"],
-                "display_name": row["display_name"],
-                "input_cost_per_million": row["input_cost_per_million"],
-                "output_cost_per_million": row["output_cost_per_million"],
-                "cache_read_cost_per_million": row["cache_read_cost_per_million"],
-                "cache_creation_cost_per_million": row["cache_creation_cost_per_million"],
-            }
-            for row in rows
-        ], []
-    except Exception as exc:
-        return [], [{"source": "cc-switch", "warning": safe_error(exc)}]
-    finally:
-        if connection is not None:
-            try:
-                connection.close()
-            except Exception:
-                pass
-
-
-def build_model_catalog_report(
-    config: Mapping[str, Any],
-    env: Mapping[str, str],
-    args: argparse.Namespace,
-    loaded_config_files: List[str],
-) -> Dict[str, Any]:
-    providers: List[Dict[str, Any]] = []
-    for name, provider_config in config.get("providers", {}).items():
-        if not isinstance(provider_config, Mapping):
-            continue
-        providers.append(
-            {
-                "provider": name,
-                "source": "registry",
-                "client": provider_config.get("client"),
-                "base_url": provider_config.get("base_url"),
-                "model_env": provider_config.get("model_env"),
-                "model_priority": provider_config.get("model_priority", []),
-                "enabled": provider_config.get("enabled", True),
-            }
-        )
-
-    cc_switch_providers, cc_warnings = discover_cc_switch_providers(config, env, args)
-    for name, provider_config in cc_switch_providers.items():
-        providers.append(
-            {
-                "provider": name,
-                "source": "cc-switch",
-                "client": provider_config.get("client"),
-                "base_url": provider_config.get("base_url"),
-                "model_env": provider_config.get("model_env"),
-                "configured_model": provider_config.get("model"),
-                "model_priority": provider_config.get("model_priority", []),
-                "enabled": provider_config.get("enabled", True),
-                "cc_switch_current": provider_config.get("_cc_switch_current"),
-                "cc_switch_failover": provider_config.get("_cc_switch_failover"),
-            }
-        )
-
-    cc_models, cc_model_warnings = load_cc_switch_model_catalog(config, env, args)
-    return {
-        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "loaded_config_files": loaded_config_files,
-        "providers": sorted(providers, key=lambda item: (str(item["source"]), str(item["provider"]))),
-        "cc_switch_model_catalog": cc_models,
-        "warnings": cc_warnings + cc_model_warnings,
-    }
-
-
-def output_model_catalog_json(report: Mapping[str, Any]) -> None:
-    print(json.dumps(report, ensure_ascii=False, indent=2))
-
-
-def output_model_catalog_markdown(report: Mapping[str, Any]) -> None:
-    print("# Multi-LLM Consensus Model Catalog")
-    print()
-    print(f"- Generated: `{report['generated_at']}`")
-    loaded = report.get("loaded_config_files") or []
-    print(f"- Config files: {', '.join(f'`{item}`' for item in loaded) if loaded else 'built-in defaults only'}")
-    print()
-    print("## Provider Model Priority")
-    print()
-    for item in report.get("providers", []):
-        print(f"### {item['provider']} ({item['source']})")
-        print()
-        print(f"- Client: `{item.get('client')}`")
-        print(f"- Enabled: `{item.get('enabled')}`")
-        if item.get("configured_model"):
-            print(f"- Configured model: `{item.get('configured_model')}`")
-        if item.get("model_env"):
-            print(f"- Model env override: `{item.get('model_env')}`")
-        if item.get("cc_switch_current") is not None:
-            print(f"- CC-SWITCH current: `{item.get('cc_switch_current')}`")
-        priority = item.get("model_priority") or []
-        print("- Model priority:")
-        for model in priority:
-            print(f"  - `{model}`")
-        print()
-
-    catalog = report.get("cc_switch_model_catalog") or []
-    print("## CC-SWITCH Model Pricing Catalog")
-    print()
-    if not catalog:
-        print("No CC-SWITCH model catalog was found.")
-    else:
-        print("| Model | Display | Input / M | Output / M |")
-        print("| --- | --- | ---: | ---: |")
-        for item in catalog:
-            print(
-                f"| `{item['model_id']}` | {item['display_name']} | "
-                f"{item['input_cost_per_million']} | {item['output_cost_per_million']} |"
-            )
-    warnings = report.get("warnings") or []
-    if warnings:
-        print()
-        print("## Warnings")
-        print()
-        for warning in warnings:
-            print(f"- {warning.get('source', 'unknown')}: {warning.get('warning')}")
-
-
 def build_report(
     task: str,
     prompt: str,
@@ -1514,17 +1071,9 @@ def main() -> int:
     config, loaded_config_files = load_config(args, env)
     defaults = config.get("defaults", {})
 
-    if args.list_models:
-        report = build_model_catalog_report(config, env, args, loaded_config_files)
-        if args.format == "json":
-            output_model_catalog_json(report)
-        else:
-            output_model_catalog_markdown(report)
-        return 0
-
     task = read_task(args)
     if not task:
-        print("No task provided. Use --task, --task-file, --stdin, or --list-models.", file=sys.stderr)
+        print("No task provided. Use --task, --task-file, or --stdin.", file=sys.stderr)
         return 2
 
     prompt = unified_prompt(task)
