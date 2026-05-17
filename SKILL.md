@@ -57,7 +57,7 @@ The script prints structured results containing `provider`, `model`, `status`, `
 
 ## Provider Selection
 
-The script discovers API keys from environment variables and `.env`, then merges provider/model settings from `llm-providers.json`, `config/llm-providers.json`, or an explicit `--config` path. It selects at most one model per provider.
+The script discovers API keys from environment variables and `.env`, then merges provider/model settings from `llm-providers.json`, `config/llm-providers.json`, or an explicit `--config` path. It also auto-detects CC-SWITCH Claude-compatible providers from `~/.cc-switch/cc-switch.db` when present. It selects at most one model per provider.
 
 Provider priorities are configurable; do not edit API keys into this skill. Use `assets/llm-providers.example.json` as a starting point and keep local secrets in environment variables or `.env`.
 
@@ -75,4 +75,5 @@ Provider priorities are configurable; do not edit API keys into this skill. Use 
 
 - `scripts/multi_llm_consensus.py`: provider discovery, model selection, concurrent API calls, structured output.
 - `references/providers.md`: installation paths, API key setup, provider registry rules, and extension notes.
+- `references/cc-switch-models.md`: local CC-SWITCH model-id snapshot and priority reference.
 - `assets/llm-providers.example.json`: editable provider registry and model priority template.
