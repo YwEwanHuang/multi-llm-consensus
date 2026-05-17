@@ -53,43 +53,6 @@ QWEN_MODEL
 
 The script also reads `.env` from the current working directory. Environment variables already set in the process take precedence over `.env` values.
 
-## CC-SWITCH Discovery
-
-When present, the script can discover Claude/Anthropic-compatible providers from:
-
-```text
-~/.cc-switch/cc-switch.db
-```
-
-It reads `providers.settings_config` in memory, looking for:
-
-```text
-ANTHROPIC_BASE_URL
-ANTHROPIC_AUTH_TOKEN
-ANTHROPIC_MODEL
-ANTHROPIC_DEFAULT_SONNET_MODEL
-ANTHROPIC_DEFAULT_OPUS_MODEL
-ANTHROPIC_DEFAULT_HAIKU_MODEL
-```
-
-Discovered providers are named `cc-switch-<provider-name>` and use the `anthropic_messages` client. Real tokens are never written to output files or committed config; they are held only in memory for the current run.
-
-Controls:
-
-```bash
-python scripts/multi_llm_consensus.py --task "test" --cc-switch auto
-python scripts/multi_llm_consensus.py --task "test" --cc-switch on --cc-switch-db /path/to/cc-switch.db
-python scripts/multi_llm_consensus.py --task "test" --cc-switch off
-python scripts/multi_llm_consensus.py --task "test" --cc-switch-current-only
-python scripts/multi_llm_consensus.py --task "test" --cc-switch-provider DeepSeek
-python scripts/multi_llm_consensus.py --task "test" --exclude-cc-switch-provider MiniMax
-python scripts/multi_llm_consensus.py --list-models --cc-switch on
-```
-
-Set `CC_SWITCH_DB` to override the default database path.
-
-Use `references/cc-switch-models.md` for the local CC-SWITCH model-id snapshot. The `--list-models` command reads the live CC-SWITCH database and prints the current provider/model priority plus the `model_pricing` catalog without making LLM API calls.
-
 ## Registry Files
 
 The script loads provider registry overrides in this order:
@@ -99,26 +62,6 @@ The script loads provider registry overrides in this order:
 3. `config/llm-providers.json`
 4. path passed with `--config`
 5. path in `LLM_PROVIDERS_CONFIG`
-
-CC-SWITCH discovery runs after registry loading and adds extra in-memory providers when their names do not already exist in the registry.
-
-CC-SWITCH config supports:
-
-```json
-{
-  "cc_switch": {
-    "enabled": true,
-    "current_only": false,
-    "include_provider_names": ["DeepSeek"],
-    "exclude_provider_names": ["MiniMax"],
-    "provider_model_priority": {
-      "DeepSeek": ["deepseek-v4-pro[1m]", "deepseek-v3.2"],
-      "MiniMax": ["MiniMax-M2.7", "minimax-m2.7"],
-      "Xiaomi MiMo": ["mimo-v2.5-pro", "mimo-v2-pro"]
-    }
-  }
-}
-```
 
 Use `assets/llm-providers.example.json` as the template. Keep API keys out of JSON; store key names such as `OPENAI_API_KEY` in `api_key_env`.
 
