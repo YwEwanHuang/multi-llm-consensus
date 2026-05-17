@@ -4,7 +4,9 @@
     "retries": 1,
     "max_output_tokens": 1400,
     "temperature": 0.2,
-    "concurrency": 6
+    "concurrency": 6,
+    "cc_switch_enabled": true,
+    "cc_switch_current_only": false
   },
   "providers": {
     "openai": {
@@ -14,14 +16,18 @@
       "api_key_env": "OPENAI_API_KEY",
       "model_env": "OPENAI_MODEL",
       "model_priority": [
-        "gpt-5.5-pro",
-        "gpt-5.5",
-        "gpt-5.4-pro",
         "gpt-5.4",
-        "gpt-5.2-pro",
+        "gpt-5.3-codex",
         "gpt-5.2",
+        "gpt-5.1",
         "gpt-5",
-        "gpt-4.1"
+        "gpt-5.4-mini",
+        "gpt-5.2-codex",
+        "gpt-5.1-codex",
+        "gpt-5-codex",
+        "gpt-4.1",
+        "o3",
+        "o4-mini"
       ],
       "discover_models": true
     },
@@ -33,8 +39,14 @@
       "model_env": "ANTHROPIC_MODEL",
       "model_priority": [
         "claude-opus-4-7",
+        "claude-opus-4-6",
         "claude-sonnet-4-6",
-        "claude-haiku-4-5"
+        "claude-opus-4-5-20251101",
+        "claude-sonnet-4-5-20250929",
+        "claude-haiku-4-5",
+        "claude-opus-4-1-20250805",
+        "claude-opus-4-20250514",
+        "claude-sonnet-4-20250514"
       ],
       "discover_models": true
     },
@@ -46,10 +58,13 @@
       "model_env": "GEMINI_MODEL",
       "model_priority": [
         "gemini-3.1-pro-preview",
-        "gemini-3.1-pro",
+        "gemini-3-pro-preview",
         "gemini-2.5-pro",
-        "gemini-3-flash",
-        "gemini-2.5-flash"
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash"
       ],
       "discover_models": true
     },
@@ -60,8 +75,9 @@
       "api_key_env": "DEEPSEEK_API_KEY",
       "model_env": "DEEPSEEK_MODEL",
       "model_priority": [
-        "deepseek-v4-pro",
-        "deepseek-v4-flash",
+        "deepseek-v3.2",
+        "deepseek-v3.1",
+        "deepseek-v3",
         "deepseek-reasoner",
         "deepseek-chat"
       ],
@@ -75,11 +91,18 @@
       "model_env": "MINIMAX_MODEL",
       "model_priority": [
         "MiniMax-M2.7",
+        "minimax-m2.7",
         "MiniMax-M2.7-highspeed",
+        "minimax-m2.7-highspeed",
         "MiniMax-M2.5",
+        "minimax-m2.5",
         "MiniMax-M2.5-highspeed",
+        "minimax-m2.5-lightning",
         "MiniMax-M2.1",
-        "MiniMax-M2"
+        "minimax-m2.1",
+        "minimax-m2.1-lightning",
+        "MiniMax-M2",
+        "minimax-m2"
       ],
       "discover_models": true
     },
@@ -93,14 +116,60 @@
       ],
       "model_env": "QWEN_MODEL",
       "model_priority": [
+        "qwen3.6-plus",
         "qwen3-max",
-        "qwen3-max-preview",
-        "qwen-max-latest",
         "qwen3.5-plus",
-        "qwen-plus-latest",
-        "qwen-plus"
+        "qwen3-coder-plus",
+        "qwen3-coder-next",
+        "qwen3-coder-flash",
+        "qwen3-235b-a22b",
+        "qwen3-32b",
+        "qwq-plus",
+        "qwq-32b"
       ],
       "discover_models": true
+    },
+    "xiaomi-mimo": {
+      "enabled": true,
+      "client": "anthropic_messages",
+      "base_url": "https://token-plan-cn.xiaomimimo.com/anthropic/v1",
+      "api_key_env": "MIMO_API_KEY",
+      "model_env": "MIMO_MODEL",
+      "model_priority": [
+        "mimo-v2.5-pro",
+        "mimo-v2-pro",
+        "mimo-v2-flash"
+      ],
+      "discover_models": false
+    }
+  },
+  "cc_switch": {
+    "enabled": true,
+    "current_only": false,
+    "include_provider_names": [],
+    "exclude_provider_names": [],
+    "provider_model_priority": {
+      "DeepSeek": [
+        "deepseek-v4-pro[1m]",
+        "deepseek-v3.2",
+        "deepseek-v3.1",
+        "deepseek-reasoner",
+        "deepseek-chat"
+      ],
+      "MiniMax": [
+        "MiniMax-M2.7",
+        "minimax-m2.7",
+        "MiniMax-M2.7-highspeed",
+        "minimax-m2.7-highspeed",
+        "minimax-m2.5",
+        "minimax-m2.1",
+        "minimax-m2"
+      ],
+      "Xiaomi MiMo": [
+        "mimo-v2.5-pro",
+        "mimo-v2-pro",
+        "mimo-v2-flash"
+      ]
     }
   }
 }
