@@ -1,0 +1,7 @@
+interface:
+  display_name: "Multi-LLM Consensus"
+  short_description: "Ask multiple LLMs, then synthesize"
+  default_prompt: "Use $multi-llm-consensus for 群智："
+
+policy:
+  allow_implicit_invocation: true
