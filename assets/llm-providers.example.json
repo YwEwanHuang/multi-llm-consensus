@@ -4,9 +4,7 @@
     "retries": 1,
     "max_output_tokens": 1400,
     "temperature": 0.2,
-    "concurrency": 6,
-    "cc_switch_enabled": true,
-    "cc_switch_current_only": false
+    "concurrency": 6
   },
   "providers": {
     "openai": {
@@ -141,35 +139,6 @@
         "mimo-v2-flash"
       ],
       "discover_models": false
-    }
-  },
-  "cc_switch": {
-    "enabled": true,
-    "current_only": false,
-    "include_provider_names": [],
-    "exclude_provider_names": [],
-    "provider_model_priority": {
-      "DeepSeek": [
-        "deepseek-v4-pro[1m]",
-        "deepseek-v3.2",
-        "deepseek-v3.1",
-        "deepseek-reasoner",
-        "deepseek-chat"
-      ],
-      "MiniMax": [
-        "MiniMax-M2.7",
-        "minimax-m2.7",
-        "MiniMax-M2.7-highspeed",
-        "minimax-m2.7-highspeed",
-        "minimax-m2.5",
-        "minimax-m2.1",
-        "minimax-m2"
-      ],
-      "Xiaomi MiMo": [
-        "mimo-v2.5-pro",
-        "mimo-v2-pro",
-        "mimo-v2-flash"
-      ]
     }
   }
 }
