@@ -1,0 +1,106 @@
+{
+  "defaults": {
+    "timeout_seconds": 60,
+    "retries": 1,
+    "max_output_tokens": 1400,
+    "temperature": 0.2,
+    "concurrency": 6
+  },
+  "providers": {
+    "openai": {
+      "enabled": true,
+      "client": "openai_responses",
+      "base_url": "https://api.openai.com/v1",
+      "api_key_env": "OPENAI_API_KEY",
+      "model_env": "OPENAI_MODEL",
+      "model_priority": [
+        "gpt-5.5-pro",
+        "gpt-5.5",
+        "gpt-5.4-pro",
+        "gpt-5.4",
+        "gpt-5.2-pro",
+        "gpt-5.2",
+        "gpt-5",
+        "gpt-4.1"
+      ],
+      "discover_models": true
+    },
+    "anthropic": {
+      "enabled": true,
+      "client": "anthropic_messages",
+      "base_url": "https://api.anthropic.com/v1",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "model_env": "ANTHROPIC_MODEL",
+      "model_priority": [
+        "claude-opus-4-7",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5"
+      ],
+      "discover_models": true
+    },
+    "gemini": {
+      "enabled": true,
+      "client": "gemini_generate",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta",
+      "api_key_env": "GEMINI_API_KEY",
+      "model_env": "GEMINI_MODEL",
+      "model_priority": [
+        "gemini-3.1-pro-preview",
+        "gemini-3.1-pro",
+        "gemini-2.5-pro",
+        "gemini-3-flash",
+        "gemini-2.5-flash"
+      ],
+      "discover_models": true
+    },
+    "deepseek": {
+      "enabled": true,
+      "client": "openai_chat_completions",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "model_env": "DEEPSEEK_MODEL",
+      "model_priority": [
+        "deepseek-v4-pro",
+        "deepseek-v4-flash",
+        "deepseek-reasoner",
+        "deepseek-chat"
+      ],
+      "discover_models": true
+    },
+    "minimax": {
+      "enabled": true,
+      "client": "openai_chat_completions",
+      "base_url": "https://api.minimax.io/v1",
+      "api_key_env": "MINIMAX_API_KEY",
+      "model_env": "MINIMAX_MODEL",
+      "model_priority": [
+        "MiniMax-M2.7",
+        "MiniMax-M2.7-highspeed",
+        "MiniMax-M2.5",
+        "MiniMax-M2.5-highspeed",
+        "MiniMax-M2.1",
+        "MiniMax-M2"
+      ],
+      "discover_models": true
+    },
+    "qwen": {
+      "enabled": true,
+      "client": "openai_chat_completions",
+      "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "api_key_env": [
+        "QWEN_API_KEY",
+        "DASHSCOPE_API_KEY"
+      ],
+      "model_env": "QWEN_MODEL",
+      "model_priority": [
+        "qwen3-max",
+        "qwen3-max-preview",
+        "qwen-max-latest",
+        "qwen3.5-plus",
+        "qwen-plus-latest",
+        "qwen-plus"
+      ],
+      "discover_models": true
+    }
+  }
+}
