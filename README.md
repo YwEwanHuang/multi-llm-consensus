@@ -32,7 +32,6 @@ Example:
 ## What It Does
 
 - Discovers configured LLM provider API keys from environment variables or local config.
-- Can discover Claude-compatible providers from a local CC-SWITCH database.
 - Selects at most one model per provider.
 - Sends a unified prompt to all available providers concurrently.
 - Saves structured per-model results: provider, model, status, response, error, latency.
@@ -105,38 +104,6 @@ QWEN_MODEL
 ```
 
 Do not commit real API keys. The included `.gitignore` excludes `.env`, `.env.*`, `llm-providers.json`, and `config/llm-providers.json`.
-
-## Use Existing CC-SWITCH Config
-
-If you already use CC-SWITCH, the script can auto-detect Claude/Anthropic-compatible providers from:
-
-```text
-~/.cc-switch/cc-switch.db
-```
-
-It looks for provider environment fields such as:
-
-```text
-ANTHROPIC_BASE_URL
-ANTHROPIC_AUTH_TOKEN
-ANTHROPIC_MODEL
-```
-
-The token is kept in memory for the current run. It is not printed, written to generated files, or committed to git.
-
-Controls:
-
-```bash
-python scripts/multi_llm_consensus.py --task "test" --cc-switch auto
-python scripts/multi_llm_consensus.py --task "test" --cc-switch on
-python scripts/multi_llm_consensus.py --task "test" --cc-switch off
-python scripts/multi_llm_consensus.py --task "test" --cc-switch-db /path/to/cc-switch.db
-python scripts/multi_llm_consensus.py --task "test" --cc-switch-current-only
-python scripts/multi_llm_consensus.py --task "test" --cc-switch-provider DeepSeek
-python scripts/multi_llm_consensus.py --list-models --cc-switch on
-```
-
-The local skill also includes `references/cc-switch-models.md`, a model-id snapshot from CC-SWITCH. Use `--list-models` for the live catalog on the current machine.
 
 ## Configure Providers And Model Priority
 
