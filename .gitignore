@@ -1,0 +1,6 @@
+.env
+.env.*
+llm-providers.json
+config/llm-providers.json
+__pycache__/
+*.py[cod]
